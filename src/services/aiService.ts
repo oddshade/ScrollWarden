@@ -4,7 +4,7 @@ import { PDFFile, AIResponse, Citation } from '../types/index.ts';
 const AI_CONFIG = {
   apiUrl: 'https://api.openai.com/v1/chat/completions',
   model: 'gpt-5-mini-2025-08-07', // Using GPT-5-mini model
-  maxTokens: 1500,
+  maxCompletionTokens: 1500,
   temperature: 0.1
 };
 
@@ -171,7 +171,7 @@ async function callRealAIAPI(question: string, pdfFiles: PDFFile[], apiKey: stri
             content: prompt
           }
         ],
-        max_tokens: AI_CONFIG.maxTokens,
+        max_completion_tokens: AI_CONFIG.maxCompletionTokens,
         temperature: AI_CONFIG.temperature
       })
     });
