@@ -21,6 +21,9 @@ import { processPDFFile } from './services/pdfProcessor.ts';
 import { queryAI } from './services/aiService.ts';
 
 const INITIAL_SIDEBAR_WIDTH = 320;
+const INITIAL_CHAT_WIDTH = 384; // w-96 equivalent
+const MIN_CHAT_WIDTH = 384;
+const MAX_CHAT_WIDTH = 768; // Double the initial size
 
 export const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>({
@@ -30,6 +33,7 @@ export const App: React.FC = () => {
     isAiThinking: false,
     sidebarCollapsed: false,
     sidebarWidth: INITIAL_SIDEBAR_WIDTH,
+    chatWidth: INITIAL_CHAT_WIDTH,
     error: null
   });
 
@@ -238,6 +242,14 @@ export const App: React.FC = () => {
     }));
   }, []);
 
+  // Handle chat panel resizing
+  const handleChatResize = useCallback((width: number) => {
+    setAppState(prev => ({
+      ...prev,
+      chatWidth: Math.max(MIN_CHAT_WIDTH, Math.min(MAX_CHAT_WIDTH, width))
+    }));
+  }, []);
+
   // Get active PDF
   const activePdf = appState.pdfFiles.find(pdf => pdf.id === appState.activePdfId);
 
@@ -293,7 +305,39 @@ export const App: React.FC = () => {
             </div>
 
             {/* Chat Panel */}
-            <div className="w-96 bg-white h-full min-h-0">
+            <div 
+              className="bg-white h-full min-h-0 relative"
+              style={{ width: `${appState.chatWidth}px` }}
+            >
+              {/* Resize Handle */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors duration-200 group"
+                title="Drag to resize chat panel"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const startX = e.clientX;
+                  const startWidth = appState.chatWidth;
+                  
+                  const handleMouseMove = (e: MouseEvent) => {
+                    const deltaX = startX - e.clientX; // Note: reversed because we're resizing from the left
+                    const newWidth = startWidth + deltaX;
+                    handleChatResize(newWidth);
+                  };
+                  
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                  };
+                  
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                  document.body.style.cursor = 'col-resize';
+                  document.body.style.userSelect = 'none';
+                }}
+              />
+              
               <ChatPanel
                 messages={appState.chatHistory}
                 isAiThinking={appState.isAiThinking}

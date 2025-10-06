@@ -30,6 +30,7 @@ export interface AppState {
   isAiThinking: boolean;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  chatWidth: number;
   error: string | null;
 }
 
