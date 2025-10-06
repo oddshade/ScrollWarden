@@ -7,7 +7,7 @@ const App = () => {
     React.createElement('div', { className: 'flex-1 flex items-center justify-center' },
       React.createElement('div', { className: 'text-center' },
         React.createElement('div', { className: 'text-8xl mb-6' }, '📚'),
-        React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-4' }, 'PDF Search Tool'),
+        React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-4' }, 'Scroll Warden'),
         React.createElement('p', { className: 'text-xl text-gray-600' }, 'Application is loading...')
       )
     )

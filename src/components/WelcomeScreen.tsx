@@ -68,13 +68,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onPDFUpload }) => 
 
         {/* Title */}
         <h1 className="text-4xl font-bold text-gray-800 mb-4">
-          PDF Search Tool
+          Scroll Warden
         </h1>
         
         {/* Subtitle */}
         <p className="text-xl text-gray-600 mb-8">
-          Upload your PDF documents and ask questions about their content. 
-          Get instant answers with precise citations to the exact pages.
+          Your vigilant guardian for PDF document exploration. Upload your documents 
+          and let Scroll Warden guide you to the exact information you need.
         </p>
 
         {/* Upload Area */}

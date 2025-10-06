@@ -1,9 +1,9 @@
 {
-  "name": "pdf-search-tool",
+  "name": "scroll-warden",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A React-based PDF search tool with AI-powered Q&A",
+  "description": "Scroll Warden - A React-based PDF search tool with AI-powered Q&A",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

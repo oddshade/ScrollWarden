@@ -1,4 +1,4 @@
-# PDF Search Tool
+# Scroll Warden
 
 A single-page web application that allows users to upload multiple PDF documents, view them within the application, and ask AI-powered questions about their content. The AI provides intelligent answers with clickable citations that navigate directly to the specific pages in the PDFs.
 
@@ -19,7 +19,7 @@ A single-page web application that allows users to upload multiple PDF documents
 1. **Clone or download this repository**
    ```bash
    git clone <repository-url>
-   cd pdf-search-tool
+   cd scroll-warden
    ```
 
 2. **Serve the files**
@@ -66,7 +66,7 @@ This application is built with:
 ### Project Structure
 
 ```
-pdf-search-tool/
+scroll-warden/
 ├── index.html              # Main HTML file with CDN imports
 ├── src/
 │   ├── main.tsx            # Application entry point
