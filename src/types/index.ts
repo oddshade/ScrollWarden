@@ -83,5 +83,7 @@ export type OnPDFUpload = (files: FileList) => void;
 export type OnChatSubmit = (message: string) => void;
 export type OnCitationClick = (citation: Citation) => void;
 export type OnPDFSelect = (pdfId: string) => void;
+export type OnPDFRemove = (pdfId: string) => void;
+export type OnClearAllPDFs = () => void;
 export type OnSidebarResize = (width: number) => void;
 export type OnSidebarToggle = () => void;

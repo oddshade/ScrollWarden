@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { PDFFile, PDFDocumentProxy, PDFPageProxy, PDFViewerState } from '../types/index.js';
+import { PDFFile, PDFDocumentProxy, PDFPageProxy, PDFViewerState } from '../types/index.ts';
 
 interface PDFViewerProps {
   pdfFile: PDFFile;
@@ -57,23 +57,20 @@ const PDFPageComponent: React.FC<PDFPageComponentProps> = ({
     } finally {
       setIsRendering(false);
     }
-  }, [document, pageNumber, scale, isRendering, isRendered, onPageRendered]);
+  }, [document, pageNumber, scale, onPageRendered]);
 
   useEffect(() => {
     if (isVisible && !isRendered && !isRendering) {
       renderPage();
     }
-  }, [isVisible, isRendered, isRendering, renderPage]);
+  }, [isVisible, renderPage]);
 
   // Re-render when scale changes
   useEffect(() => {
     if (isRendered) {
       setIsRendered(false);
-      if (isVisible) {
-        setTimeout(renderPage, 0);
-      }
     }
-  }, [scale, isRendered, isVisible, renderPage]);
+  }, [scale]);
 
   if (!isVisible && !isRendered) {
     return (
@@ -92,8 +89,8 @@ const PDFPageComponent: React.FC<PDFPageComponentProps> = ({
   }
 
   return (
-    <div className="flex justify-center bg-gray-100 border-b border-gray-200 p-4">
-      <div className="relative bg-white shadow-lg">
+    <div className="flex justify-center bg-gray-100 border-b border-gray-200 p-4 flex-shrink-0">
+      <div className="relative bg-white shadow-lg max-w-full">
         {/* Page number overlay */}
         <div className="absolute top-2 right-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs font-medium">
           {pageNumber}
@@ -113,7 +110,7 @@ const PDFPageComponent: React.FC<PDFPageComponentProps> = ({
           className={`block ${isRendering ? 'opacity-50' : ''}`}
           style={{
             maxWidth: '100%',
-            height: 'auto',
+            height: 'auto'
           }}
         />
       </div>
@@ -172,41 +169,55 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
   useEffect(() => {
     if (!document) return;
 
+    let debounceTimer: NodeJS.Timeout;
+
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        const newVisiblePages = new Set(visiblePages);
-        
-        entries.forEach((entry) => {
-          const pageNumber = parseInt(entry.target.getAttribute('data-page-number') || '0');
+        // Debounce updates to prevent excessive re-renders
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          let hasChanges = false;
+          const newVisiblePages = new Set(visiblePages);
           
-          if (entry.isIntersecting) {
-            // Add current page and nearby pages for aggressive pre-loading
-            for (let i = Math.max(1, pageNumber - 2); i <= Math.min(viewerState.totalPages, pageNumber + 2); i++) {
-              newVisiblePages.add(i);
+          entries.forEach((entry) => {
+            const pageNumber = parseInt(entry.target.getAttribute('data-page-number') || '0');
+            
+            if (entry.isIntersecting) {
+              // Only add current page and immediate neighbors
+              for (let i = Math.max(1, pageNumber - 1); i <= Math.min(viewerState.totalPages, pageNumber + 1); i++) {
+                if (!newVisiblePages.has(i)) {
+                  newVisiblePages.add(i);
+                  hasChanges = true;
+                }
+              }
             }
-          }
-        });
-        
-        setVisiblePages(newVisiblePages);
-
-        // Update current page based on which page is most visible
-        const visibleEntries = entries.filter(entry => entry.isIntersecting);
-        if (visibleEntries.length > 0) {
-          const mostVisibleEntry = visibleEntries.reduce((prev, current) => 
-            prev.intersectionRatio > current.intersectionRatio ? prev : current
-          );
-          const currentPageNumber = parseInt(mostVisibleEntry.target.getAttribute('data-page-number') || '1');
+          });
           
-          setViewerState(prev => ({
-            ...prev,
-            currentPage: currentPageNumber
-          }));
-        }
+          if (hasChanges) {
+            setVisiblePages(newVisiblePages);
+          }
+
+          // Update current page based on which page is most visible
+          const visibleEntries = entries.filter(entry => entry.isIntersecting);
+          if (visibleEntries.length > 0) {
+            const mostVisibleEntry = visibleEntries.reduce((prev, current) => 
+              prev.intersectionRatio > current.intersectionRatio ? prev : current
+            );
+            const currentPageNumber = parseInt(mostVisibleEntry.target.getAttribute('data-page-number') || '1');
+            
+            setViewerState(prev => {
+              if (prev.currentPage !== currentPageNumber) {
+                return { ...prev, currentPage: currentPageNumber };
+              }
+              return prev;
+            });
+          }
+        }, 100); // 100ms debounce
       },
       {
         root: containerRef.current,
-        rootMargin: '200% 0px', // Very aggressive pre-loading
-        threshold: [0, 0.25, 0.5, 0.75, 1]
+        rootMargin: '50px', // Reduced pre-loading to prevent flickering
+        threshold: [0, 0.5]
       }
     );
 
@@ -218,11 +229,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
     });
 
     return () => {
+      clearTimeout(debounceTimer);
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
     };
-  }, [document, viewerState.totalPages]);
+  }, [document, viewerState.totalPages, visiblePages]);
 
   // Handle target page scrolling
   useEffect(() => {
@@ -244,27 +256,44 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
 
   // Zoom handlers
   const zoomIn = useCallback(() => {
-    setViewerState(prev => ({
-      ...prev,
-      scale: Math.min(3.0, prev.scale + 0.25),
-      pagesRendered: new Set() // Clear to force re-render at new scale
-    }));
+    setViewerState(prev => {
+      const newScale = Math.min(3.0, prev.scale + 0.25);
+      if (newScale !== prev.scale) {
+        return {
+          ...prev,
+          scale: newScale,
+          pagesRendered: new Set() // Clear to force re-render at new scale
+        };
+      }
+      return prev;
+    });
   }, []);
 
   const zoomOut = useCallback(() => {
-    setViewerState(prev => ({
-      ...prev,
-      scale: Math.max(0.5, prev.scale - 0.25),
-      pagesRendered: new Set() // Clear to force re-render at new scale
-    }));
+    setViewerState(prev => {
+      const newScale = Math.max(0.5, prev.scale - 0.25);
+      if (newScale !== prev.scale) {
+        return {
+          ...prev,
+          scale: newScale,
+          pagesRendered: new Set() // Clear to force re-render at new scale
+        };
+      }
+      return prev;
+    });
   }, []);
 
   const resetZoom = useCallback(() => {
-    setViewerState(prev => ({
-      ...prev,
-      scale: 1.0,
-      pagesRendered: new Set() // Clear to force re-render at new scale
-    }));
+    setViewerState(prev => {
+      if (prev.scale !== 1.0) {
+        return {
+          ...prev,
+          scale: 1.0,
+          pagesRendered: new Set() // Clear to force re-render at new scale
+        };
+      }
+      return prev;
+    });
   }, []);
 
   // Handle page rendered callback
@@ -320,9 +349,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
         <div className="flex items-center space-x-4">
           <h3 className="text-lg font-medium text-gray-800 truncate max-w-md" title={pdfFile.name}>
             {pdfFile.name}
@@ -373,7 +402,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
       {/* PDF Pages */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto min-h-0"
         style={{ scrollBehavior: 'smooth' }}
       >
         {Array.from({ length: viewerState.totalPages }, (_, index) => {

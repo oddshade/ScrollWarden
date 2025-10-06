@@ -1,4 +1,4 @@
-import { PDFDocumentProxy, PDFPageProxy } from '../types/index.js';
+import { PDFDocumentProxy, PDFPageProxy } from '../types/index.ts';
 
 export interface ProcessedPDFData {
   totalPages: number;

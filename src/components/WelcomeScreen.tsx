@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState } from 'react';
-import { OnPDFUpload } from '../types/index.js';
+import { OnPDFUpload } from '../types/index.ts';
 
 interface WelcomeScreenProps {
   onPDFUpload: OnPDFUpload;
@@ -53,14 +53,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onPDFUpload }) => 
 
   return (
     <div 
-      className={`flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${
+      className={`flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 overflow-y-auto ${
         isDragOver ? 'bg-blue-100 scale-[1.02]' : ''
       }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="text-center max-w-2xl mx-auto p-8">
+      <div className="text-center max-w-2xl mx-auto p-8 w-full">
         {/* Main Icon */}
         <div className={`text-8xl mb-6 transition-transform duration-300 ${isDragOver ? 'scale-110' : ''}`}>
           📚

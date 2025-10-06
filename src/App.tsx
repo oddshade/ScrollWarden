@@ -8,15 +8,17 @@ import {
   OnChatSubmit, 
   OnCitationClick, 
   OnPDFSelect,
+  OnPDFRemove,
+  OnClearAllPDFs,
   OnSidebarResize,
   OnSidebarToggle 
-} from './types/index.js';
-import { PDFManagerSidebar } from './components/PDFManagerSidebar.js';
-import { PDFViewer } from './components/PDFViewer.js';
-import { ChatPanel } from './components/ChatPanel.js';
-import { WelcomeScreen } from './components/WelcomeScreen.js';
-import { processPDFFile } from './services/pdfProcessor.js';
-import { queryAI } from './services/aiService.js';
+} from './types/index.ts';
+import { PDFManagerSidebar } from './components/PDFManagerSidebar.tsx';
+import { PDFViewer } from './components/PDFViewer.tsx';
+import { ChatPanel } from './components/ChatPanel.tsx';
+import { WelcomeScreen } from './components/WelcomeScreen.tsx';
+import { processPDFFile } from './services/pdfProcessor.ts';
+import { queryAI } from './services/aiService.ts';
 
 const INITIAL_SIDEBAR_WIDTH = 320;
 
@@ -191,6 +193,35 @@ export const App: React.FC = () => {
     }));
   }, []);
 
+  // Handle PDF removal from sidebar
+  const handlePDFRemove: OnPDFRemove = useCallback((pdfId: string) => {
+    setAppState(prev => {
+      const updatedPdfFiles = prev.pdfFiles.filter(pdf => pdf.id !== pdfId);
+      let newActivePdfId = prev.activePdfId;
+      
+      // If we're removing the currently active PDF, select another one or set to null
+      if (prev.activePdfId === pdfId) {
+        newActivePdfId = updatedPdfFiles.length > 0 ? updatedPdfFiles[0].id : null;
+      }
+      
+      return {
+        ...prev,
+        pdfFiles: updatedPdfFiles,
+        activePdfId: newActivePdfId
+      };
+    });
+  }, []);
+
+  // Handle clearing all PDFs
+  const handleClearAllPDFs = useCallback(() => {
+    setAppState(prev => ({
+      ...prev,
+      pdfFiles: [],
+      activePdfId: null,
+      chatHistory: [] // Also clear chat history when clearing all PDFs
+    }));
+  }, []);
+
   // Handle sidebar resizing
   const handleSidebarResize: OnSidebarResize = useCallback((width: number) => {
     setAppState(prev => ({
@@ -224,6 +255,8 @@ export const App: React.FC = () => {
         width={appState.sidebarWidth}
         onPDFUpload={handlePDFUpload}
         onPDFSelect={handlePDFSelect}
+        onPDFRemove={handlePDFRemove}
+        onClearAll={handleClearAllPDFs}
         onResize={handleSidebarResize}
         onToggle={handleSidebarToggle}
       />
@@ -234,9 +267,9 @@ export const App: React.FC = () => {
           /* Welcome Screen */
           <WelcomeScreen onPDFUpload={handlePDFUpload} />
         ) : (
-          <div className="flex-1 flex">
+          <div className="flex-1 flex h-full min-h-0">
             {/* PDF Viewer */}
-            <div className="flex-1 bg-white border-r border-gray-200">
+            <div className="flex-1 bg-white border-r border-gray-200 h-full min-h-0">
               {activePdf ? (
                 <PDFViewer 
                   pdfFile={activePdf}
@@ -260,7 +293,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Chat Panel */}
-            <div className="w-96 bg-white">
+            <div className="w-96 bg-white h-full min-h-0">
               <ChatPanel
                 messages={appState.chatHistory}
                 isAiThinking={appState.isAiThinking}

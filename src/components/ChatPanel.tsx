@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChatMessage, Citation, OnChatSubmit, OnCitationClick } from '../types/index.js';
+import { ChatMessage, Citation, OnChatSubmit, OnCitationClick } from '../types/index.ts';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -146,7 +146,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-800">AI Assistant</h3>
+        <div className="flex items-center space-x-2">
+          <h3 className="text-lg font-semibold text-gray-800">AI Assistant</h3>
+          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+            (() => {
+              const rawApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+              const apiKey = rawApiKey ? rawApiKey.replace(/\u0000/g, '').trim() : '';
+              return apiKey && apiKey !== 'your_openai_api_key_here' && apiKey.startsWith('sk-')
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-orange-100 text-orange-800';
+            })()
+          }`}>
+            {(() => {
+              const rawApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+              const apiKey = rawApiKey ? rawApiKey.replace(/\u0000/g, '').trim() : '';
+              return apiKey && apiKey !== 'your_openai_api_key_here' && apiKey.startsWith('sk-')
+                ? 'OpenAI' 
+                : 'Demo';
+            })()}
+          </div>
+        </div>
         <div className="flex items-center space-x-2">
           <div className={`
             w-2 h-2 rounded-full

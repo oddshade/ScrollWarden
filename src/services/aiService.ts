@@ -1,12 +1,10 @@
-import { PDFFile, AIResponse, Citation } from '../types/index.js';
+import { PDFFile, AIResponse, Citation } from '../types/index.ts';
 
 // Configuration for the AI service
 const AI_CONFIG = {
-  // You can modify this to use different AI providers
-  // For now, we'll create a simple structure that can be easily extended
   apiUrl: 'https://api.openai.com/v1/chat/completions',
-  model: 'gpt-3.5-turbo',
-  maxTokens: 1000,
+  model: 'gpt-4o-mini', // Using GPT-4o-mini for better performance and cost
+  maxTokens: 1500,
   temperature: 0.1
 };
 
@@ -18,21 +16,22 @@ function constructPrompt(question: string, pdfFiles: PDFFile[]): string {
     return `START OF DOCUMENT: ${pdf.name}\n${pdf.extractedText}\nEND OF DOCUMENT: ${pdf.name}\n\n`;
   }).join('');
 
-  const prompt = `You are an expert document analyst. Your role is to answer questions based ONLY on the provided document content. You must follow these rules strictly:
+  const prompt = `You are an expert document analyst. Analyze the provided PDF documents and answer the user's question based strictly on the content.
 
-1. Only answer based on the information contained in the provided documents
-2. If you cannot find relevant information in the documents, say so clearly
-3. Always provide a citation for your answer using the exact format: "Source: [Document Name], Page X"
-4. Be precise and accurate in your citations
-5. If information spans multiple pages, cite the most relevant page
+IMPORTANT RULES:
+1. ONLY use information from the provided documents
+2. If information is not in the documents, clearly state "I cannot find information about [topic] in the provided documents"
+3. ALWAYS end your response with a citation in this EXACT format: "Source: [Document Name], Page X"
+4. Use the most relevant page number for your citation
+5. Be concise but comprehensive in your answer
+6. If information spans multiple pages, cite the page with the most relevant details
 
-Here are the documents to analyze:
-
+DOCUMENTS:
 ${documentTexts}
 
-Question: ${question}
+QUESTION: ${question}
 
-Please provide a clear, accurate answer based on the document content, followed by a citation in the format "Source: [Document Name], Page X". If you cannot answer based on the provided documents, explain why.`;
+Provide your answer followed by the required citation format.`;
 
   return prompt;
 }
@@ -127,15 +126,19 @@ export async function queryAI(question: string, pdfFiles: PDFFile[]): Promise<AI
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
 
-    // Check if we should return a mock response or make a real API call
-    const shouldUseMock = true; // Set to false when you have API credentials
+    // Check if we have an API key
+    const rawApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    // Clean the API key of any null characters or whitespace
+    const apiKey = rawApiKey ? rawApiKey.replace(/\u0000/g, '').trim() : '';
+    const shouldUseMock = !apiKey || apiKey === 'your_openai_api_key_here' || !apiKey.startsWith('sk-');
     
     if (shouldUseMock) {
+      console.warn('Using mock AI responses. Set VITE_OPENAI_API_KEY in .env file to use real OpenAI API.');
       return createMockAIResponse(question, validPDFs);
     }
 
-    // Real AI API implementation would go here:
-    return await callRealAIAPI(question, validPDFs);
+    // Use real AI API
+    return await callRealAIAPI(question, validPDFs, apiKey);
 
   } catch (error) {
     console.error('Error querying AI:', error);
@@ -144,43 +147,62 @@ export async function queryAI(question: string, pdfFiles: PDFFile[]): Promise<AI
 }
 
 /**
- * Real AI API implementation (currently commented out for demo purposes)
- * Uncomment and configure when you have API credentials
+ * Real AI API implementation using OpenAI
  */
-async function callRealAIAPI(question: string, pdfFiles: PDFFile[]): Promise<AIResponse> {
+async function callRealAIAPI(question: string, pdfFiles: PDFFile[], apiKey: string): Promise<AIResponse> {
   const prompt = constructPrompt(question, pdfFiles);
   
-  const response = await fetch(AI_CONFIG.apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, // You'll need to set this
-    },
-    body: JSON.stringify({
-      model: AI_CONFIG.model,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: AI_CONFIG.maxTokens,
-      temperature: AI_CONFIG.temperature
-    })
-  });
+  try {
+    const response = await fetch(AI_CONFIG.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_CONFIG.model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful document analyst. You analyze PDF documents and answer questions based strictly on their content. Always provide citations in the exact format: "Source: [Document Name], Page X"'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: AI_CONFIG.maxTokens,
+        temperature: AI_CONFIG.temperature
+      })
+    });
 
-  if (!response.ok) {
-    throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+      throw new Error(`OpenAI API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    const aiResponseText = data.choices?.[0]?.message?.content;
+
+    if (!aiResponseText) {
+      throw new Error('No response content from OpenAI API');
+    }
+
+    return parseAIResponse(aiResponseText);
+  } catch (error) {
+    if (error instanceof Error) {
+      // Provide more specific error messages
+      if (error.message.includes('401')) {
+        throw new Error('Invalid OpenAI API key. Please check your VITE_OPENAI_API_KEY in the .env file.');
+      } else if (error.message.includes('429')) {
+        throw new Error('OpenAI API rate limit exceeded. Please try again in a moment.');
+      } else if (error.message.includes('quota')) {
+        throw new Error('OpenAI API quota exceeded. Please check your account billing.');
+      }
+    }
+    throw error;
   }
-
-  const data = await response.json();
-  const aiResponseText = data.choices?.[0]?.message?.content;
-
-  if (!aiResponseText) {
-    throw new Error('No response from AI');
-  }
-
-  return parseAIResponse(aiResponseText);
 }
 
 /**
