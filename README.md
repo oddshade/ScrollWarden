@@ -92,7 +92,7 @@ The application supports multiple AI providers with easy switching between them:
 
 #### Supported AI Providers
 
-- **OpenAI GPT** - GPT-4o Mini model
+- **OpenAI GPT** - GPT-5 Mini model
 - **Google Gemini** - Gemini 2.5 Flash model
 
 #### Setup Instructions
