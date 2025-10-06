@@ -36,9 +36,9 @@ npm run dev
 
 ## Cost Considerations
 
-- The app uses GPT-4o-mini-2024-07-18 which is cost-effective
+- The app uses GPT-5-mini-2025-08-07 model
 - Each query costs approximately $0.0015 - $0.006 depending on document length
-- This is the latest version of GPT-4o-mini with improved performance
+- This is GPT-5-mini with advanced capabilities
 - Monitor your usage on the [OpenAI Usage Dashboard](https://platform.openai.com/usage)
 
 ## Troubleshooting

@@ -3,7 +3,7 @@ import { PDFFile, AIResponse, Citation } from '../types/index.ts';
 // Configuration for the AI service
 const AI_CONFIG = {
   apiUrl: 'https://api.openai.com/v1/chat/completions',
-  model: 'gpt-4o-mini-2024-07-18', // Using latest GPT-4o-mini model with specific version
+  model: 'gpt-5-mini-2025-08-07', // Using GPT-5-mini model
   maxTokens: 1500,
   temperature: 0.1
 };
