@@ -88,29 +88,39 @@ pdf-search-tool/
 
 ### AI Service Setup
 
-The application currently uses mock AI responses for demonstration. To connect to a real AI service:
+The application supports multiple AI providers with easy switching between them:
 
-1. **Open `src/services/aiService.ts`**
-2. **Set `shouldUseMock` to `false`** in the `queryAI` function
-3. **Add your API credentials** (e.g., OpenAI API key)
-4. **Configure the AI provider** in the `AI_CONFIG` object
+#### Supported AI Providers
 
-Example for OpenAI:
-```typescript
-// Set environment variable or replace with your key
-const API_KEY = 'your-openai-api-key-here';
+- **OpenAI GPT** - GPT-4o Mini model
+- **Google Gemini** - Gemini 2.5 Flash model
 
-// In callRealAIAPI function, replace:
-'Authorization': `Bearer ${API_KEY}`
-```
+#### Setup Instructions
 
-### Supported AI Providers
+1. **Copy the example environment file**:
+   ```bash
+   cp .env.example .env
+   ```
 
-The architecture supports easy integration with various AI providers:
-- OpenAI GPT models
-- Anthropic Claude
-- Google PaLM
-- Other LLM APIs
+2. **Add your API keys** to the `.env` file:
+   
+   **For OpenAI:**
+   - Get your API key from: https://platform.openai.com/account/api-keys
+   - Add to `.env`: `VITE_OPENAI_API_KEY=sk-your-actual-key-here`
+   
+   **For Google Gemini:**
+   - Get your API key from: https://makersuite.google.com/app/apikey
+   - Add to `.env`: `VITE_GEMINI_API_KEY=your-actual-key-here`
+
+3. **Choose your provider**: Click the provider selector in the chat panel header to switch between OpenAI and Gemini
+
+#### Provider Features
+
+- **Real-time switching**: Change providers without restarting the application
+- **Status indicators**: Visual feedback showing connection status for each provider
+- **Fallback to demo**: If no valid API key is found, the app uses mock responses
+- **Individual configuration**: Each provider has optimized settings (temperature, token limits, etc.)
+- **Markdown rendering**: AI responses are rendered with rich formatting (headers, lists, bold, italic, code blocks)
 
 ## 💡 Usage
 
@@ -133,6 +143,7 @@ The architecture supports easy integration with various AI providers:
 - **Citation Buttons**: Clickable citations that navigate to PDF pages
 - **Auto-resize Input**: Text area expands as you type
 - **Thinking Animation**: Visual feedback during AI processing
+- **Rich Text Rendering**: AI responses support markdown formatting (headers, lists, **bold**, *italic*, `code`)
 
 ### Sidebar Management
 - **Collapsible**: Hide/show sidebar with smooth animations
@@ -180,11 +191,21 @@ The modular architecture makes it easy to extend:
    - Consider using OCR-enabled PDFs
 
 3. **AI Responses Not Working**
-   - Check if you've configured the AI service correctly
-   - Verify API keys and network connectivity
+   - Check which provider you've selected in the chat header
+   - Verify the correct API key is set in your `.env` file:
+     - OpenAI: `VITE_OPENAI_API_KEY=sk-...`
+     - Gemini: `VITE_GEMINI_API_KEY=...`
+   - Check browser console for specific error messages
    - Mock responses work without any configuration
 
-4. **Performance Issues**
+4. **Provider Selection Issues**
+   - If the provider dropdown shows "Demo Mode", check your API key format
+   - OpenAI keys should start with `sk-`
+   - Gemini keys are typically 39+ characters long
+   - Restart your development server after changing `.env` files
+   - Use browser dev tools to check if environment variables are loaded
+
+5. **Performance Issues**
    - Try with smaller PDF files first
    - Close other browser tabs to free memory
    - Check if lazy loading is working correctly

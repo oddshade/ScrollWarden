@@ -46,6 +46,23 @@ export interface AIResponse {
   citation?: Citation;
 }
 
+// AI Provider types
+export type AIProviderType = 'openai' | 'gemini';
+
+export interface AIProviderConfig {
+  name: string;
+  apiUrl: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+export interface AIProvider {
+  type: AIProviderType;
+  config: AIProviderConfig;
+  callAPI: (question: string, pdfFiles: PDFFile[], apiKey: string) => Promise<AIResponse>;
+}
+
 // PDF.js types (minimal declarations)
 declare global {
   interface Window {

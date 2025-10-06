@@ -1,69 +1,21 @@
-import { PDFFile, AIResponse, Citation } from '../types/index.ts';
+import { PDFFile, AIResponse, AIProviderType } from '../types/index.ts';
+import { getProvider, DEFAULT_PROVIDER } from './providers/index.ts';
 
-// Configuration for the AI service
-const AI_CONFIG = {
-  apiUrl: 'https://api.openai.com/v1/chat/completions',
-  model: 'gpt-5-mini-2025-08-07', // Using GPT-5-mini model
-  maxCompletionTokens: 1500,
-  temperature: 0.1
-};
+// Global provider selection - can be changed by user
+let selectedProvider: AIProviderType = DEFAULT_PROVIDER;
 
 /**
- * Constructs a detailed prompt for the AI to answer questions based on PDF content
+ * Set the current AI provider
  */
-function constructPrompt(question: string, pdfFiles: PDFFile[]): string {
-  const documentTexts = pdfFiles.map(pdf => {
-    return `START OF DOCUMENT: ${pdf.name}\n${pdf.extractedText}\nEND OF DOCUMENT: ${pdf.name}\n\n`;
-  }).join('');
-
-  const prompt = `You are an expert document analyst. Analyze the provided PDF documents and answer the user's question based strictly on the content.
-
-IMPORTANT RULES:
-1. ONLY use information from the provided documents
-2. If information is not in the documents, clearly state "I cannot find information about [topic] in the provided documents"
-3. ALWAYS end your response with a citation in this EXACT format: "Source: [Document Name], Page X"
-4. Use the most relevant page number for your citation
-5. Be concise but comprehensive in your answer
-6. If information spans multiple pages, cite the page with the most relevant details
-
-DOCUMENTS:
-${documentTexts}
-
-QUESTION: ${question}
-
-Provide your answer followed by the required citation format.`;
-
-  return prompt;
+export function setAIProvider(provider: AIProviderType): void {
+  selectedProvider = provider;
 }
 
 /**
- * Parses the AI response to extract the main content and citation
+ * Get the current AI provider
  */
-function parseAIResponse(responseText: string): AIResponse {
-  // Look for citation pattern: "Source: [Document Name], Page X"
-  const citationRegex = /Source:\s*([^,]+),\s*Page\s*(\d+)/i;
-  const match = responseText.match(citationRegex);
-
-  let citation: Citation | undefined;
-  let content = responseText;
-
-  if (match) {
-    const documentName = match[1].trim();
-    const pageNumber = parseInt(match[2], 10);
-    
-    citation = {
-      documentName,
-      pageNumber
-    };
-
-    // Remove the citation from the main content
-    content = responseText.replace(citationRegex, '').trim();
-  }
-
-  return {
-    content,
-    citation
-  };
+export function getCurrentAIProvider(): AIProviderType {
+  return selectedProvider;
 }
 
 /**
@@ -71,24 +23,46 @@ function parseAIResponse(responseText: string): AIResponse {
  * In a real implementation, replace this with actual AI API calls
  */
 function createMockAIResponse(question: string, pdfFiles: PDFFile[]): AIResponse {
-  // Simulate processing time
+  const providerName = getProvider(selectedProvider).config.name;
   const responses = [
     {
-      content: "Based on the documents provided, I can see that this relates to the content you're asking about. The information suggests that the key points are outlined in the document structure.",
+      content: `### Document Analysis Results
+
+Based on the documents provided (analyzed by **${providerName}**), I can provide the following insights:
+
+- The **key points** are outlined in the document structure
+- Important information is distributed across multiple sections
+- Technical details are properly documented
+
+This analysis covers the main aspects relevant to your question with supporting information from the source material.`,
       citation: {
         documentName: pdfFiles[0]?.name || 'document.pdf',
         pageNumber: Math.floor(Math.random() * 10) + 1
       }
     },
     {
-      content: "The document indicates that this topic is discussed in detail. The relevant section covers the main aspects of your question with supporting information.",
+      content: `## Key Findings
+
+The document indicates that this topic is discussed in **comprehensive detail** (${providerName} analysis). Here are the main points:
+
+1. **Primary concepts** are well-defined
+2. Supporting evidence is provided throughout
+3. Practical applications are demonstrated
+
+*Note: This information spans multiple sections of the document for thorough coverage.*`,
       citation: {
         documentName: pdfFiles[Math.floor(Math.random() * pdfFiles.length)]?.name || 'document.pdf',
         pageNumber: Math.floor(Math.random() * 20) + 1
       }
     },
     {
-      content: "According to the provided documents, the information you're looking for can be found in the specified section. The document provides comprehensive coverage of this topic.",
+      content: `According to the provided documents (processed via **${providerName}**), the information you're looking for includes:
+
+- **Core concepts** are clearly explained
+- \`Technical specifications\` are provided where applicable
+- Step-by-step guidance is available
+
+The document provides **comprehensive coverage** of this topic with detailed explanations and practical examples.`,
       citation: {
         documentName: pdfFiles[0]?.name || 'document.pdf',
         pageNumber: Math.floor(Math.random() * 15) + 1
@@ -97,6 +71,33 @@ function createMockAIResponse(question: string, pdfFiles: PDFFile[]): AIResponse
   ];
 
   return responses[Math.floor(Math.random() * responses.length)];
+}
+
+/**
+ * Get API key for the selected provider
+ */
+function getAPIKey(providerType: AIProviderType): string {
+  const rawApiKey = providerType === 'openai' 
+    ? import.meta.env.VITE_OPENAI_API_KEY
+    : import.meta.env.VITE_GEMINI_API_KEY;
+  
+  return rawApiKey ? rawApiKey.replace(/\u0000/g, '').trim() : '';
+}
+
+/**
+ * Check if API key is valid for the provider
+ */
+function isValidAPIKey(providerType: AIProviderType, apiKey: string): boolean {
+  if (!apiKey) return false;
+  
+  switch (providerType) {
+    case 'openai':
+      return apiKey !== 'your_openai_api_key_here' && apiKey.startsWith('sk-');
+    case 'gemini':
+      return apiKey !== 'your_gemini_api_key_here' && apiKey.length > 10;
+    default:
+      return false;
+  }
 }
 
 /**
@@ -120,25 +121,22 @@ export async function queryAI(question: string, pdfFiles: PDFFile[]): Promise<AI
   }
 
   try {
-    // For development purposes, we'll use a mock response
-    // In production, you would replace this with actual AI API calls
-    
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
 
-    // Check if we have an API key
-    const rawApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    // Clean the API key of any null characters or whitespace
-    const apiKey = rawApiKey ? rawApiKey.replace(/\u0000/g, '').trim() : '';
-    const shouldUseMock = !apiKey || apiKey === 'your_openai_api_key_here' || !apiKey.startsWith('sk-');
+    // Get current provider and API key
+    const provider = getProvider(selectedProvider);
+    const apiKey = getAPIKey(selectedProvider);
+    const shouldUseMock = !isValidAPIKey(selectedProvider, apiKey);
     
     if (shouldUseMock) {
-      console.warn('Using mock AI responses. Set VITE_OPENAI_API_KEY in .env file to use real OpenAI API.');
+      const envVar = selectedProvider === 'openai' ? 'VITE_OPENAI_API_KEY' : 'VITE_GEMINI_API_KEY';
+      console.warn(`Using mock AI responses. Set ${envVar} in .env file to use real ${provider.config.name} API.`);
       return createMockAIResponse(question, validPDFs);
     }
 
     // Use real AI API
-    return await callRealAIAPI(question, validPDFs, apiKey);
+    return await provider.callAPI(question, validPDFs, apiKey);
 
   } catch (error) {
     console.error('Error querying AI:', error);
@@ -146,68 +144,5 @@ export async function queryAI(question: string, pdfFiles: PDFFile[]): Promise<AI
   }
 }
 
-/**
- * Real AI API implementation using OpenAI
- */
-async function callRealAIAPI(question: string, pdfFiles: PDFFile[], apiKey: string): Promise<AIResponse> {
-  const prompt = constructPrompt(question, pdfFiles);
-  
-  try {
-    const response = await fetch(AI_CONFIG.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: AI_CONFIG.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful document analyst. You analyze PDF documents and answer questions based strictly on their content. Always provide citations in the exact format: "Source: [Document Name], Page X"'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_completion_tokens: AI_CONFIG.maxCompletionTokens,
-        temperature: AI_CONFIG.temperature
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
-      throw new Error(`OpenAI API error: ${errorMessage}`);
-    }
-
-    const data = await response.json();
-    const aiResponseText = data.choices?.[0]?.message?.content;
-
-    if (!aiResponseText) {
-      throw new Error('No response content from OpenAI API');
-    }
-
-    return parseAIResponse(aiResponseText);
-  } catch (error) {
-    if (error instanceof Error) {
-      // Provide more specific error messages
-      if (error.message.includes('401')) {
-        throw new Error('Invalid OpenAI API key. Please check your VITE_OPENAI_API_KEY in the .env file.');
-      } else if (error.message.includes('429')) {
-        throw new Error('OpenAI API rate limit exceeded. Please try again in a moment.');
-      } else if (error.message.includes('quota')) {
-        throw new Error('OpenAI API quota exceeded. Please check your account billing.');
-      }
-    }
-    throw error;
-  }
-}
-
-/**
- * Alternative AI providers can be easily added here
- * For example, Anthropic's Claude, Google's PaLM, etc.
- */
-
-export { AI_CONFIG };
+// Export provider functions for use in components
+export { getAvailableProviders } from './providers/index.ts';
