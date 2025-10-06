@@ -28,14 +28,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCitationClick 
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-[80%] ${isUser ? 'order-2' : 'order-1'}`}>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+      <div className={`max-w-[85%] w-full`}>
         <div
           className={`
-            px-4 py-2 rounded-lg shadow-sm
+            px-3 py-2 rounded-lg shadow-sm
             ${isUser 
-              ? 'bg-blue-500 text-white rounded-br-sm' 
-              : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+              ? 'bg-blue-500 text-white rounded-br-sm ml-auto' 
+              : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm mr-auto'
             }
           `}
         >
@@ -64,29 +64,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCitationClick 
           {formatTimestamp(message.timestamp)}
         </div>
       </div>
-      
-      {/* Avatar */}
-      <div className={`
-        flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-        ${isUser 
-          ? 'bg-blue-500 text-white ml-2 order-1' 
-          : 'bg-gray-200 text-gray-600 mr-2 order-2'
-        }
-      `}>
-        {isUser ? '👤' : '🤖'}
-      </div>
     </div>
   );
 };
 
 const ThinkingIndicator: React.FC = () => {
   return (
-    <div className="flex justify-start mb-4">
-      <div className="flex-shrink-0 w-8 h-8 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-sm font-medium mr-2">
-        🤖
-      </div>
-      <div className="max-w-[80%]">
-        <div className="bg-white border border-gray-200 text-gray-800 rounded-lg rounded-bl-sm px-4 py-2 shadow-sm">
+    <div className="flex justify-start mb-3">
+      <div className="max-w-[85%]">
+        <div className="bg-white border border-gray-200 text-gray-800 rounded-lg rounded-bl-sm px-3 py-2 shadow-sm mr-auto">
           <div className="flex items-center space-x-1">
             <span className="text-sm text-gray-600">AI is thinking</span>
             <div className="thinking-dots text-gray-600"></div>
@@ -168,7 +154,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-0">
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0">
         {messages.length === 0 && !isAiThinking ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-6xl mb-4">💬</div>
@@ -202,7 +188,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-3">
         <div className="flex space-x-2">
           <div className="flex-1 relative">
             <textarea
