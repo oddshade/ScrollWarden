@@ -12,6 +12,9 @@ A single-page web application that allows users to upload multiple PDF documents
 - **🎨 Modern UI**: Beautiful, responsive design with TailwindCSS
 - **⚡ Browser-Based**: No installation required - runs entirely in your browser
 
+<img width="1277" height="675" alt="{9603510D-8469-4FCE-884F-4E5F197DCB9B}" src="https://github.com/user-attachments/assets/73169da0-2816-4901-a92f-f6f12c465c77" />
+<img width="1277" height="670" alt="{360859D9-6977-4626-97B1-BDF39B0BD8E8}" src="https://github.com/user-attachments/assets/338c694c-da7f-4452-a5fe-f31aaf8bfb44" />
+
 ## 🚀 Quick Start
 
 ### Option 1: Run Locally
