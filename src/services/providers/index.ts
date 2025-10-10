@@ -9,7 +9,7 @@ export const AI_PROVIDERS: Record<AIProviderType, AIProvider> = {
 };
 
 // Default provider
-export const DEFAULT_PROVIDER: AIProviderType = 'openai';
+export const DEFAULT_PROVIDER: AIProviderType = 'gemini';
 
 // Get available provider names for UI
 export function getAvailableProviders(): Array<{type: AIProviderType, name: string}> {

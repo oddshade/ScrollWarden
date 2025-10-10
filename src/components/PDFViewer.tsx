@@ -166,8 +166,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
   }, [pdfFile]);
 
   // Set up intersection observer for lazy loading
-  useEffect(() => {
-    if (!document) return;
+  const setupIntersectionObserver = useCallback(() => {
+    if (!document || !containerRef.current) return;
+
+    // Disconnect existing observer if any
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
 
     let debounceTimer: NodeJS.Timeout;
 
@@ -216,7 +221,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
       },
       {
         root: containerRef.current,
-        rootMargin: '50px', // Reduced pre-loading to prevent flickering
+        rootMargin: '50px',
         threshold: [0, 0.5]
       }
     );
@@ -236,23 +241,96 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
     };
   }, [document, viewerState.totalPages, visiblePages]);
 
+  useEffect(() => {
+    const cleanup = setupIntersectionObserver();
+    return cleanup;
+  }, [setupIntersectionObserver]);
+
   // Handle target page scrolling
   useEffect(() => {
     if (targetPage && document && containerRef.current) {
+      console.log(`Attempting to navigate to page ${targetPage}`);
+      
       const scrollToTargetPage = () => {
         const pageElement = pageRefs.current.get(targetPage);
         if (pageElement) {
+          console.log(`Found page element for page ${targetPage}, scrolling...`);
+          
+          // Temporarily disable the intersection observer to prevent interference
+          if (observerRef.current) {
+            observerRef.current.disconnect();
+          }
+          
+          // Scroll to the target page
           pageElement.scrollIntoView({ 
             behavior: 'smooth', 
             block: 'start' 
           });
+          
+          // Update the current page indicator
+          setViewerState(prev => ({
+            ...prev,
+            currentPage: targetPage
+          }));
+          
+          // Re-enable intersection observer after scrolling
+          setTimeout(() => {
+            // Re-setup the entire intersection observer
+            setupIntersectionObserver();
+          }, 1000);
+          
+          console.log(`Successfully navigated to page ${targetPage}`);
+        } else {
+          console.warn(`Page element for page ${targetPage} not found in pageRefs. Available pages:`, Array.from(pageRefs.current.keys()));
+          
+          // Try multiple fallback approaches
+          // 1. Try to find the page element by data attribute
+          const pageElementBySelector = containerRef.current?.querySelector(`[data-page-number="${targetPage}"]`) as HTMLDivElement;
+          if (pageElementBySelector) {
+            console.log(`Found page element by selector for page ${targetPage}`);
+            pageElementBySelector.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start' 
+            });
+            setViewerState(prev => ({ ...prev, currentPage: targetPage }));
+            return;
+          }
+          
+          // 2. If the page element isn't ready, try scrolling by calculating position
+          console.log(`Falling back to estimated position for page ${targetPage}`);
+          if (containerRef.current) {
+            const estimatedPosition = (targetPage - 1) * 850; // Slightly increased estimate
+            containerRef.current.scrollTo({
+              top: estimatedPosition,
+              behavior: 'smooth'
+            });
+            setViewerState(prev => ({ ...prev, currentPage: targetPage }));
+          }
         }
       };
 
-      // Wait a bit for pages to render if needed
-      setTimeout(scrollToTargetPage, 100);
+      // Try multiple times with increasing delays to ensure page elements are ready
+      const tryScroll = (attempt: number = 1) => {
+        if (attempt > 5) {
+          console.error(`Failed to scroll to page ${targetPage} after 5 attempts`);
+          return;
+        }
+        
+        const delay = attempt * 300; // 300ms, 600ms, 900ms, etc.
+        setTimeout(() => {
+          const pageElement = pageRefs.current.get(targetPage);
+          if (pageElement) {
+            scrollToTargetPage();
+          } else {
+            console.log(`Attempt ${attempt}: Page element not ready, retrying...`);
+            tryScroll(attempt + 1);
+          }
+        }, delay);
+      };
+      
+      tryScroll();
     }
-  }, [targetPage, document]);
+  }, [targetPage, document, pageRefs]);
 
   // Zoom handlers
   const zoomIn = useCallback(() => {

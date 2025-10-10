@@ -107,6 +107,57 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Handle navigation to citations (both manual clicks and auto-navigation)
+  const [targetPageInfo, setTargetPageInfo] = useState<{documentName: string; pageNumber: number; timestamp: number} | null>(null);
+  
+  const navigateToCitation = useCallback((citation: Citation, isAutomatic: boolean = false) => {
+    const source = isAutomatic ? 'Auto-navigation' : 'Citation clicked';
+    console.log(`${source}: ${citation.documentName}, Page ${citation.pageNumber}`);
+    
+    // Find the PDF file that matches the citation
+    const targetPdf = appState.pdfFiles.find(pdf => pdf.name === citation.documentName);
+    
+    if (targetPdf) {
+      console.log(`Found target PDF: ${targetPdf.name} (ID: ${targetPdf.id})`);
+      
+      // First switch to the target PDF
+      setAppState(prev => ({
+        ...prev,
+        activePdfId: targetPdf.id
+      }));
+      
+      // Then set the target page for navigation with a unique timestamp
+      const timestamp = Date.now();
+      setTargetPageInfo({
+        documentName: citation.documentName,
+        pageNumber: citation.pageNumber,
+        timestamp
+      });
+      
+      console.log(`Set target page info:`, { documentName: citation.documentName, pageNumber: citation.pageNumber, timestamp });
+      
+      // Reset the target page info after a longer delay to allow proper scrolling
+      setTimeout(() => {
+        setTargetPageInfo(prev => {
+          // Only clear if this is the same navigation request
+          if (prev && prev.timestamp === timestamp) {
+            console.log(`Clearing target page info for timestamp ${timestamp}`);
+            return null;
+          }
+          return prev;
+        });
+      }, 3000); // Increased to 3 seconds to allow multiple scroll attempts
+    } else {
+      console.warn(`Target PDF not found for citation: ${citation.documentName}`);
+      console.log('Available PDFs:', appState.pdfFiles.map(pdf => ({ name: pdf.name, id: pdf.id })));
+    }
+  }, [appState.pdfFiles]);
+  
+  // Handle citation clicks (manual navigation)
+  const handleCitationClick: OnCitationClick = useCallback((citation: Citation) => {
+    navigateToCitation(citation, false);
+  }, [navigateToCitation]);
+
   // Handle chat message submission
   const handleChatSubmit: OnChatSubmit = useCallback(async (message: string) => {
     if (!message.trim() || appState.isAiThinking) return;
@@ -154,6 +205,15 @@ export const App: React.FC = () => {
         chatHistory: [...prev.chatHistory, assistantMessage],
         isAiThinking: false
       }));
+      
+      // Auto-navigate to citation if available
+      if (aiResponse.citation) {
+        console.log('AI response includes citation, auto-navigating...');
+        // Add a small delay to allow the UI to update first
+        setTimeout(() => {
+          navigateToCitation(aiResponse.citation!, true);
+        }, 500);
+      }
     } catch (error) {
       console.error('Error querying AI:', error);
       
@@ -171,23 +231,7 @@ export const App: React.FC = () => {
         error: error instanceof Error ? error.message : 'AI service error'
       }));
     }
-  }, [appState.pdfFiles, appState.isAiThinking]);
-
-  // Handle citation clicks
-  const handleCitationClick: OnCitationClick = useCallback((citation: Citation) => {
-    // Find the PDF file that matches the citation
-    const targetPdf = appState.pdfFiles.find(pdf => pdf.name === citation.documentName);
-    
-    if (targetPdf) {
-      setAppState(prev => ({
-        ...prev,
-        activePdfId: targetPdf.id
-      }));
-      
-      // The PDF viewer will handle scrolling to the specific page
-      // We'll pass the page number through a callback or ref
-    }
-  }, [appState.pdfFiles]);
+  }, [appState.pdfFiles, appState.isAiThinking, navigateToCitation]);
 
   // Handle PDF selection in sidebar
   const handlePDFSelect: OnPDFSelect = useCallback((pdfId: string) => {
@@ -286,12 +330,8 @@ export const App: React.FC = () => {
                 <PDFViewer 
                   pdfFile={activePdf}
                   targetPage={
-                    // Find the most recent citation page to scroll to
-                    appState.chatHistory
-                      .slice()
-                      .reverse()
-                      .find(msg => msg.citation?.documentName === activePdf.name)
-                      ?.citation?.pageNumber
+                    // Use the targetPageInfo if it matches the current PDF
+                    targetPageInfo?.documentName === activePdf.name ? targetPageInfo.pageNumber : undefined
                   }
                 />
               ) : (
