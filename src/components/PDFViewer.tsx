@@ -22,57 +22,73 @@ const PDFPageComponent: React.FC<PDFPageComponentProps> = ({
   onPageRendered
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isRendered, setIsRendered] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
-  const [viewport, setViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const renderedScaleRef = useRef<number | null>(null);
+  const renderTaskRef = useRef<any>(null);
 
   const renderPage = useCallback(async () => {
-    if (!canvasRef.current || isRendering || isRendered) return;
+    if (!canvasRef.current || isRendering) return;
+    
+    // Skip if already rendered at this scale
+    if (renderedScaleRef.current === scale) return;
+
+    // Cancel any ongoing render task
+    if (renderTaskRef.current) {
+      renderTaskRef.current.cancel();
+      renderTaskRef.current = null;
+    }
 
     try {
       setIsRendering(true);
+      console.log(`Rendering page ${pageNumber} at scale ${scale}`);
+      
       const page = await document.getPage(pageNumber);
       const pageViewport = page.getViewport({ scale });
       
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      if (!canvas) return;
       
+      const context = canvas.getContext('2d');
       if (!context) return;
 
+      // Set canvas dimensions
       canvas.height = pageViewport.height;
       canvas.width = pageViewport.width;
-      
-      setViewport({ width: pageViewport.width, height: pageViewport.height });
 
       const renderContext = {
         canvasContext: context,
         viewport: pageViewport,
       };
 
-      await page.render(renderContext).promise;
-      setIsRendered(true);
+      // Render the page
+      renderTaskRef.current = page.render(renderContext);
+      await renderTaskRef.current.promise;
+      
+      // Mark this scale as rendered
+      renderedScaleRef.current = scale;
+      renderTaskRef.current = null;
+      
       onPageRendered(pageNumber);
-    } catch (error) {
-      console.error(`Error rendering page ${pageNumber}:`, error);
+      console.log(`Page ${pageNumber} rendered successfully at scale ${scale}`);
+    } catch (error: any) {
+      if (error?.name === 'RenderingCancelledException') {
+        console.log(`Rendering cancelled for page ${pageNumber}`);
+      } else {
+        console.error(`Error rendering page ${pageNumber}:`, error);
+      }
     } finally {
       setIsRendering(false);
     }
-  }, [document, pageNumber, scale, onPageRendered]);
+  }, [document, pageNumber, scale, onPageRendered, isRendering]);
 
+  // Trigger render when page becomes visible or scale changes
   useEffect(() => {
-    if (isVisible && !isRendered && !isRendering) {
+    if (isVisible && !isRendering && renderedScaleRef.current !== scale) {
       renderPage();
     }
-  }, [isVisible, renderPage]);
+  }, [isVisible, scale, renderPage, isRendering]);
 
-  // Re-render when scale changes
-  useEffect(() => {
-    if (isRendered) {
-      setIsRendered(false);
-    }
-  }, [scale]);
-
-  if (!isVisible && !isRendered) {
+  if (!isVisible && renderedScaleRef.current === null) {
     return (
       <div 
         className="flex items-center justify-center bg-gray-100 border-b border-gray-200"
@@ -245,6 +261,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
     const cleanup = setupIntersectionObserver();
     return cleanup;
   }, [setupIntersectionObserver]);
+  
+  // When scale changes, force update visible pages to trigger re-render
+  useEffect(() => {
+    if (document && visiblePages.size > 0) {
+      console.log(`Scale changed to ${viewerState.scale}. Triggering re-render for ${visiblePages.size} visible pages.`);
+      // Force a state update to trigger re-render in child components
+      // This creates a new Set reference, causing React to re-render
+      setVisiblePages(new Set(visiblePages));
+    }
+  }, [viewerState.scale]);
+  
 
   // Handle target page scrolling
   useEffect(() => {
@@ -335,8 +362,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
   // Zoom handlers
   const zoomIn = useCallback(() => {
     setViewerState(prev => {
-      const newScale = Math.min(3.0, prev.scale + 0.25);
+      const newScale = Math.min(3.0, prev.scale + 0.5);
       if (newScale !== prev.scale) {
+        console.log(`Zooming in from ${prev.scale} to ${newScale}`);
         return {
           ...prev,
           scale: newScale,
@@ -349,8 +377,9 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
 
   const zoomOut = useCallback(() => {
     setViewerState(prev => {
-      const newScale = Math.max(0.5, prev.scale - 0.25);
+      const newScale = Math.max(0.5, prev.scale - 0.5);
       if (newScale !== prev.scale) {
+        console.log(`Zooming out from ${prev.scale} to ${newScale}`);
         return {
           ...prev,
           scale: newScale,
@@ -364,6 +393,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ pdfFile, targetPage }) => 
   const resetZoom = useCallback(() => {
     setViewerState(prev => {
       if (prev.scale !== 1.0) {
+        console.log(`Resetting zoom from ${prev.scale} to 1.0`);
         return {
           ...prev,
           scale: 1.0,
