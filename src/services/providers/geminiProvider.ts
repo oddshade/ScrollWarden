@@ -1,4 +1,5 @@
-import { AIProvider, AIProviderConfig, PDFFile, AIResponse, Citation } from '../../types/index.ts';
+import { AIProvider, AIProviderConfig, PDFFile, AIResponse } from '../../types/index.ts';
+import { constructAIPrompt, parseAIResponse } from './promptUtils.ts';
 
 export const geminiConfig: AIProviderConfig = {
   name: 'Google Gemini',
@@ -9,80 +10,17 @@ export const geminiConfig: AIProviderConfig = {
 };
 
 /**
- * Constructs a detailed prompt for Gemini to answer questions based on PDF content
- */
-function constructGeminiPrompt(question: string, pdfFiles: PDFFile[]): string {
-  const documentTexts = pdfFiles.map(pdf => {
-    return `START OF DOCUMENT: ${pdf.name}\n${pdf.extractedText}\nEND OF DOCUMENT: ${pdf.name}\n\n`;
-  }).join('');
-
-  const prompt = `You are an expert document analyst. Analyze the provided PDF documents and answer the user's question based strictly on the content.
-
-IMPORTANT RULES:
-1. ONLY use information from the provided documents
-2. If information is not in the documents, clearly state "I cannot find information about [topic] in the provided documents"
-3. ALWAYS end your response with a citation in this EXACT format: "Source: [Document Name], Page X"
-4. Use the most relevant page number for your citation
-5. Be concise but comprehensive in your answer
-6. If information spans multiple pages, cite the page with the most relevant details
-7. Format your response using markdown for better readability:
-   - Use **bold** for important terms
-   - Use bullet points (-) for lists
-   - Use ### for section headers when appropriate
-   - Use \`code\` for technical terms or specific values
-   - Use numbered lists (1.) for step-by-step information
-
-DOCUMENTS:
-${documentTexts}
-
-QUESTION: ${question}
-
-Provide your answer followed by the required citation format.`;
-
-  return prompt;
-}
-
-/**
- * Parses the Gemini AI response to extract the main content and citation
- */
-function parseGeminiResponse(responseText: string): AIResponse {
-  // Look for citation pattern: "Source: [Document Name], Page X"
-  const citationRegex = /Source:\s*([^,]+),\s*Page\s*(\d+)/i;
-  const match = responseText.match(citationRegex);
-
-  let citation: Citation | undefined;
-  let content = responseText;
-
-  if (match) {
-    const documentName = match[1].trim();
-    const pageNumber = parseInt(match[2], 10);
-    
-    citation = {
-      documentName,
-      pageNumber
-    };
-
-    // Remove the citation from the main content
-    content = responseText.replace(citationRegex, '').trim();
-  }
-
-  return {
-    content,
-    citation
-  };
-}
-
-/**
  * Google Gemini API implementation
  */
 async function callGeminiAPI(question: string, pdfFiles: PDFFile[], apiKey: string): Promise<AIResponse> {
-  const prompt = constructGeminiPrompt(question, pdfFiles);
+  const prompt = constructAIPrompt(question, pdfFiles);
   
   try {
-    const response = await fetch(`${geminiConfig.apiUrl}?key=${apiKey}`, {
+    const response = await fetch(geminiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents: [
@@ -138,7 +76,7 @@ async function callGeminiAPI(question: string, pdfFiles: PDFFile[], apiKey: stri
       throw new Error('No response content from Gemini API');
     }
 
-    return parseGeminiResponse(aiResponseText);
+    return parseAIResponse(aiResponseText);
   } catch (error) {
     if (error instanceof Error) {
       // Provide more specific error messages

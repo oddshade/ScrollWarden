@@ -52,6 +52,28 @@ export const App: React.FC = () => {
   const handlePDFUpload: OnPDFUpload = useCallback(async (files: FileList) => {
     const fileArray = Array.from(files);
     
+    // Validate file size (max 80MB per file)
+    const MAX_FILE_SIZE = 80 * 1024 * 1024; // 80MB
+    const MAX_TOTAL_FILES = 10;
+    
+    const oversizedFiles = fileArray.filter(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      setAppState(prev => ({
+        ...prev,
+        error: `Some files exceed the 80MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`
+      }));
+      return;
+    }
+    
+    // Check total file limit
+    if (appState.pdfFiles.length + fileArray.length > MAX_TOTAL_FILES) {
+      setAppState(prev => ({
+        ...prev,
+        error: `Maximum ${MAX_TOTAL_FILES} PDF files allowed. Please remove some files first.`
+      }));
+      return;
+    }
+    
     // Create initial PDF file objects
     const newPDFs: PDFFile[] = fileArray.map(file => ({
       id: generatePdfId(),
@@ -71,8 +93,8 @@ export const App: React.FC = () => {
       error: null
     }));
 
-    // Process each PDF file
-    for (const pdfFile of newPDFs) {
+    // Process PDFs in parallel for better performance
+    const processingPromises = newPDFs.map(async (pdfFile) => {
       try {
         const processedData = await processPDFFile(pdfFile.file);
         
@@ -104,7 +126,10 @@ export const App: React.FC = () => {
           )
         }));
       }
-    }
+    });
+    
+    // Wait for all PDFs to finish processing
+    await Promise.allSettled(processingPromises);
   }, []);
 
   // Handle navigation to citations (both manual clicks and auto-navigation)

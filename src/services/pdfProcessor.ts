@@ -66,6 +66,15 @@ export async function processPDFFile(file: File): Promise<ProcessedPDFData> {
     // Clean up the extracted text
     extractedText = cleanExtractedText(extractedText);
 
+    // Clean up the PDF document to free memory
+    try {
+      await pdfDocument.cleanup();
+      await pdfDocument.destroy();
+    } catch (cleanupError) {
+      console.warn('Error during PDF cleanup:', cleanupError);
+      // Continue anyway as the main task is complete
+    }
+
     return {
       totalPages,
       extractedText
